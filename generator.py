@@ -2,12 +2,16 @@ import random
 import base64
 import io
 
-import torch
 import uvicorn
 from PIL import Image
 from fastapi import FastAPI
-from torch.nn import DataParallel
-from diffusers import DiffusionPipeline
+
+try:
+    import torch
+    from torch.nn import DataParallel
+    from diffusers import DiffusionPipeline
+except ImportError:
+    print('Diffusion models are not available')
 
 
 class Generator:
