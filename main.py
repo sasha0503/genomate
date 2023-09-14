@@ -89,27 +89,39 @@ server_pipe = ServerPipe(generator, image_db)
 
 
 @app.post("/image-from-prompt/")
-async def generate_image_from_prompt(prompt: str = "", from_scratch: bool = True, example_img_id: str = None):
+async def generate_image_from_prompt(prompts):
+    """
+    :param prompts: list of dict with keys: description: str, scene_id: str, from_scratch: bool, example_img_id: str
+    """
     try:
         start = time.time()
         global is_running
         is_running = True
+        byte64s = []
+        ids = []
+        scene_ids = []
+        for prompt in prompts:
+            description = prompt.get('description', '')
+            scene_id = prompt.get('scene_id', '')
+            from_scratch = prompt.get('from_scratch', True)
+            example_img_id = prompt.get('example_img_id', None)
+            if not description or not scene_id:
+                raise HTTPException(status_code=500, detail="Invalid prompt")
+            image, new_img_id = server_pipe.generate(description, from_scratch, example_img_id)
+            print("Generated image with id: " + new_img_id)
+            print("Time to generate the image: " + str(time.time() - start))
+            ids.append(new_img_id)
+            scene_ids.append(scene_id)
 
-        image, new_img_id = server_pipe.generate(prompt, from_scratch, example_img_id)
-        print("Generated image with id: " + new_img_id)
-        print("Time to generate the image: " + str(time.time() - start))
-
-        # Convert the image to bytes
-        buffered = BytesIO()
-        image.save(buffered, format="PNG")
-        image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+            # Convert the image to bytes
+            buffered = BytesIO()
+            image.save(buffered, format="PNG")
+            image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+            byte64s.append(image_base64)
 
         is_running = False
         print("Time to send the image: " + str(time.time() - start))
-        return {
-            "id": new_img_id,
-            "base64": image_base64,
-        }
+        return [{"img64": byte64, "id": id, "scene_id": scene_id} for byte64, id, scene_id in zip(byte64s, ids, scene_ids)]
     except Exception as e:
         is_running = False
         traceback.print_exc()
