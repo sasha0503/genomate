@@ -120,6 +120,8 @@ async def generate_image_from_prompt(prompt: str = "", from_scratch: bool = True
 async def create_script(brief: str):
     try:
         # ---------- OpenAI API ----------
+        if brief == "":
+            raise HTTPException(status_code=500, detail="Invalid prompt")
         conversation = [
             {"role": "system", "content": gpt_pre_prompt},
             {"role": "user", "content": brief}
