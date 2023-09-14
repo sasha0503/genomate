@@ -120,20 +120,6 @@ async def generate_image_from_prompt(prompt: str = "", from_scratch: bool = True
 async def create_script(brief: str):
     try:
         # ---------- OpenAI API ----------
-        gpt_pre_prompt = """Instructions: Act as a professional scriptwriter who will write the scripts for a video storyboard based on the client brief.
-The videos will be 2d vector art. Do not use any proper nouns in scene description. Use only generic descriptions which describes the image.
-Do not include anything except the script. No notes, no comments, nothing. Give explicit instructions for the illustrations which will fit perfectly as a prompt for stable diffusion.
-Do not describe scenes based on previous scenes. Each scene must be described independently. The script should be written in the present tense.
-Each scene must be one point in time. The scene cannot be described as any process or a series of events, it should be one point in time.
-
-Example of lines of the output:
-1: a man stands on the roof. it is dark. he wears a suit. he holds a gun. he looks at the city. he is sad.
-2: full moon. birds fly visually though it
-So each like starts with a number and a colon. Then there is a description of the scene.
-Don't use word "scene" in descriptions. Just discard the image in details and don't focus on it being a future video.
-Always be specific. Don't give options to choose from.
-        """
-        brief = 'I want to create a video which will explain how our business work. We are delivery service which deliver packages across Ukraine. Our company name is "New Post". Brand color is red. Please make an accent in illustrations to make illustrations in red, white, black tones.'
         conversation = [
             {"role": "system", "content": gpt_pre_prompt},
             {"role": "user", "content": brief}
