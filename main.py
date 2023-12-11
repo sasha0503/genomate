@@ -14,6 +14,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 from generator_communicator import GeneratorCommunicator
 
+"""
+ключ для доступу до openai api зберігається у файлі .env який не включений до репозиторію з міркувань безпеки
+"""
 dotenv.load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 with open('prompt.txt', 'r') as f:
@@ -36,6 +39,9 @@ class ImageDB:
         self.db_path = db_path
 
     def get_image(self, image_id):
+        """
+        Отримує зображення з бази даних (папки) по id
+        """
         image_path = os.path.join(self.db_path, image_id) + '.png'
         if not os.path.exists(image_path):
             image_path = os.path.join(self.db_path, image_id) + '.jpg'
@@ -44,6 +50,10 @@ class ImageDB:
         return Image.open(image_path)
 
     def save_image(self, image: Image):
+        """
+        Зберігає зображення в базу даних (папку) і повертає його id
+         id - це порядковий номер зображення в базі даних
+        """
         if not os.path.exists(self.db_path):
             os.mkdir(self.db_path)
             image_id = '0'
@@ -65,6 +75,12 @@ class ImageDB:
 
 
 class ServerPipe:
+    """
+    Клас ServerPipe - це клас, який зберігає в собі об'єкти класів GeneratorCommunicator та ImageDB.
+    Його метод generate приймає prompt, example_id та from_scratch і повертає зображення та його id.
+
+    Клас ServerPipe використовується для зручної взаємодії з генератором та базою даних зображень в одному місці.
+    """
     def __init__(self, custom_generator: GeneratorCommunicator, images_database: ImageDB):
         self.generator: GeneratorCommunicator = custom_generator
         self.image_db: ImageDB = images_database
@@ -95,18 +111,27 @@ async def generate_image_from_prompt(prompts):
     """
     try:
         start = time.time()
+        """
+        використовується параметр is_running, щоб уникнути одночасного запуску багатьох процесів генерації
+        """
         global is_running
         is_running = True
+
         byte64s = []
         ids = []
         scene_ids = []
         for prompt in prompts:
+            """
+            prompt - це словник з ключами description, scene_id, from_scratch, example_img_id
+            є можливість обробляти декілька prompt в одному запиті (при цьому вони будуть оброблятись послідовно)
+            """
             description = prompt.get('description', '')
             scene_id = prompt.get('scene_id', '')
             from_scratch = prompt.get('from_scratch', True)
             example_img_id = prompt.get('example_img_id', None)
             if not description or not scene_id:
                 raise HTTPException(status_code=500, detail="Invalid prompt")
+
             image, new_img_id = server_pipe.generate(description, from_scratch, example_img_id)
             print("Generated image with id: " + new_img_id)
             print("Time to generate the image: " + str(time.time() - start))
@@ -121,6 +146,10 @@ async def generate_image_from_prompt(prompts):
 
         is_running = False
         print("Time to send the image: " + str(time.time() - start))
+
+        """
+        повертаємо послідовність зображень у форматі base64, їх id та scene_id для кожного prompt із запиту
+        """
         return [{"img64": byte64, "id": id, "scene_id": scene_id} for byte64, id, scene_id in zip(byte64s, ids, scene_ids)]
     except Exception as e:
         is_running = False
@@ -131,9 +160,17 @@ async def generate_image_from_prompt(prompts):
 @app.get("/create-script")
 async def create_script(brief: str):
     try:
+        """
+        генерація скрипту за допомогою openai api
+        """
         # ---------- OpenAI API ----------
         if brief == "":
             raise HTTPException(status_code=500, detail="Invalid prompt")
+        """
+        для кастомізації генерації можна використовувати role та content
+        у даному випадку використовується role: system, content: gpt_pre_prompt - опис скрипту, який ми хочемо отримати
+        role: user, content: brief - опис сцени від юзера, який ми передаємо у запиті
+        """
         conversation = [
             {"role": "system", "content": gpt_pre_prompt},
             {"role": "user", "content": brief}
@@ -144,6 +181,9 @@ async def create_script(brief: str):
         )
 
         # ---------- Getting result ----------
+        """
+        отримання та обробка результату генерації
+        """
         text = response.choices[0]['message']['content']
         print(text)
         lines = text.split('\n')
